@@ -43,8 +43,7 @@ export default function StocksPage() {
         setLoading(true);
         setError(null);
 
-        // Assurez-vous que l'utilisateur est connecté pour que la RLS fonctionne
-        // Bien que nous ne vérifiions pas ici, la RLS (SELECT) devrait gérer le filtre.
+        // Cette requête SELECT fonctionne si la RLS est bien configurée avec auth.uid() = user_id
         const { data, error } = await supabase
           .from('articles')
           .select('*, quantite_en_stock, valeur_stock') 
@@ -68,7 +67,7 @@ export default function StocksPage() {
     };
 
     /**
-     * LOGIQUE D'INSERTION CORRIGÉE
+     * LOGIQUE D'INSERTION CORRIGÉE (RÉSOUD LA CONTRAINTE NOT-NULL)
      */
     const handleCreateArticle = async (e) => {
         e.preventDefault();
@@ -85,11 +84,11 @@ export default function StocksPage() {
             return;
         }
 
-        // 2. Récupérer l'entreprise_id à partir du profil de l'utilisateur
+        // 2. Récupérer l'entreprise_id à partir du profil de l'utilisateur (Utilise 'user_id')
         const { data: profile, error: profileError } = await supabase
             .from('profilsutilisateurs')
             .select('entreprise_id')
-            .eq('id', user.id)
+            .eq('user_id', user.id) // CLÉ CORRIGÉE: Utilise 'user_id' pour le filtre RLS
             .single();
 
         if (profileError || !profile || !profile.entreprise_id) {
@@ -99,7 +98,7 @@ export default function StocksPage() {
             return;
         }
         
-        // CORRECTION CLÉ: Convertir la valeur TEXT en INTEGER avant l'insertion
+        // 3. Conversion de la valeur TEXT en INTEGER (pour satisfaire la BDD)
         const entrepriseId = parseInt(profile.entreprise_id); 
 
         if (isNaN(entrepriseId)) {
@@ -108,7 +107,7 @@ export default function StocksPage() {
              return;
         }
 
-        // 3. Insertion de l'article avec l'ID de l'entreprise
+        // 4. Insertion de l'article avec l'ID de l'entreprise
         const { error: insertError } = await supabase
           .from('articles')
           .insert([{ 
