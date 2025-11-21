@@ -1,7 +1,7 @@
 // src/pages/StocksPage.jsx
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient.js';
-import useWindowWidth from '../hooks/useWindowWidth.js'; // <-- NOUVEL IMPORT
+import useWindowWidth from '../hooks/useWindowWidth.js';
 
 // --- STYLES RÉUTILISABLES ---
 const inputBaseStyle = {
@@ -10,11 +10,11 @@ const inputBaseStyle = {
     borderRadius: '16px',
     border: '2px solid #e2e8f0',
     fontSize: '1.2rem',
-    boxSizing: 'border-box', // Crucial pour le responsive
+    boxSizing: 'border-box',
 };
 
 export default function StocksPage() {
-    const { isMobile } = useWindowWidth(); // <-- Utilisation du Hook
+    const { isMobile } = useWindowWidth();
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -43,6 +43,7 @@ export default function StocksPage() {
         setLoading(true);
         setError(null);
 
+        // NOTE: La RLS pour SELECT doit être configurée pour que ceci fonctionne
         const { data, error } = await supabase
           .from('articles')
           .select('*, quantite_en_stock, valeur_stock') 
@@ -65,22 +66,52 @@ export default function StocksPage() {
         setMouvement({ ...mouvement, [e.target.name]: e.target.value });
     };
 
+    /**
+     * CORRECTION MAJEURE: Ajoute la logique pour récupérer l'entreprise_id avant l'insertion.
+     */
     const handleCreateArticle = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
         setSuccess(null);
 
-        const { error } = await supabase
+        // 1. Récupérer l'ID de l'utilisateur connecté
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            setLoading(false);
+            setError("Erreur : Vous devez être connecté pour créer un article.");
+            return;
+        }
+
+        // 2. Récupérer l'entreprise_id à partir du profil de l'utilisateur
+        const { data: profile, error: profileError } = await supabase
+            .from('profilsutilisateurs')
+            .select('entreprise_id')
+            .eq('id', user.id)
+            .single();
+
+        if (profileError || !profile || !profile.entreprise_id) {
+            setLoading(false);
+            setError("Erreur : Impossible de trouver l'ID de l'entreprise associée à votre profil.");
+            console.error("Détail Supabase:", profileError);
+            return;
+        }
+        
+        const entrepriseId = profile.entreprise_id; // L'ID que nous devons insérer
+
+        // 3. Insertion de l'article avec l'ID de l'entreprise
+        const { error: insertError } = await supabase
           .from('articles')
           .insert([{ 
-            ...newArticle, 
+            ...newArticle,
+            entreprise_id: entrepriseId, // CLÉ OBLIGATOIRE AJOUTÉE
             quantite_en_stock: 0, 
             valeur_stock: 0 
           }]);
 
-        if (error) {
-            setError("Erreur création article : " + error.message);
+        if (insertError) {
+            setError("Erreur création article : " + insertError.message);
         } else {
             setSuccess("Article créé avec succès !");
             setNewArticle({ reference: '', denomination: '', unite_stockage: 'unité' });
@@ -96,9 +127,11 @@ export default function StocksPage() {
         setError(null);
         setSuccess(null);
         
+        // NOTE: La fonction enregistrer_mouvement_stock doit gérer l'entreprise_id côté PostgreSQL
+        
         const finalCoutUnitaire = mouvement.type_mouvement === 'sortie' 
-          ? null 
-          : parseFloat(mouvement.cout_unitaire);
+            ? null 
+            : parseFloat(mouvement.cout_unitaire);
 
         const { error } = await supabase.rpc('enregistrer_mouvement_stock', {
             p_article_id: parseInt(mouvement.article_id),
@@ -143,7 +176,6 @@ export default function StocksPage() {
             minHeight: '100vh',
             background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
             fontFamily: "'Poppins', sans-serif",
-            // Pleine largeur sur mobile
             padding: isMobile ? '15px 0' : '40px 20px'
         }}>
             <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
@@ -198,7 +230,7 @@ export default function StocksPage() {
 
                 {/* LAYOUT PRINCIPAL (Responsif) */}
                 <div style={{ 
-                    display: isMobile ? 'block' : 'grid', // Empilement sur mobile
+                    display: isMobile ? 'block' : 'grid',
                     gridTemplateColumns: '1fr 2fr', 
                     gap: isMobile ? '30px' : '40px',
                     margin: isMobile ? '0 15px' : '0'
@@ -437,7 +469,6 @@ export default function StocksPage() {
                         borderRadius: '32px',
                         padding: formPadding,
                         boxShadow: '0 40px 90px rgba(0,0,0,0.15)',
-                        // Marge sur mobile pour séparer les formulaires des stocks
                         marginTop: isMobile ? '30px' : '0', 
                     }}>
                         <h2 style={{ fontSize: cardTitleSize, color: '#2c3e50', marginBottom: '40px' }}>
@@ -551,7 +582,7 @@ export default function StocksPage() {
 
                 {/* FOOTER */}
                 <div style={{
-                    marginTop: '60px', // Marge réduite pour l'alignement mobile
+                    marginTop: '60px',
                     padding: isMobile ? '30px' : '50px',
                     background: '#f8fafc',
                     borderRadius: '24px',
