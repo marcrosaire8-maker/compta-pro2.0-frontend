@@ -43,7 +43,8 @@ export default function StocksPage() {
         setLoading(true);
         setError(null);
 
-        // NOTE: La RLS pour SELECT doit être configurée pour que ceci fonctionne
+        // Assurez-vous que l'utilisateur est connecté pour que la RLS fonctionne
+        // Bien que nous ne vérifiions pas ici, la RLS (SELECT) devrait gérer le filtre.
         const { data, error } = await supabase
           .from('articles')
           .select('*, quantite_en_stock, valeur_stock') 
@@ -67,7 +68,7 @@ export default function StocksPage() {
     };
 
     /**
-     * CORRECTION MAJEURE: Ajoute la logique pour récupérer l'entreprise_id avant l'insertion.
+     * LOGIQUE D'INSERTION CORRIGÉE
      */
     const handleCreateArticle = async (e) => {
         e.preventDefault();
@@ -98,14 +99,21 @@ export default function StocksPage() {
             return;
         }
         
-        const entrepriseId = profile.entreprise_id; // L'ID que nous devons insérer
+        // CORRECTION CLÉ: Convertir la valeur TEXT en INTEGER avant l'insertion
+        const entrepriseId = parseInt(profile.entreprise_id); 
+
+        if (isNaN(entrepriseId)) {
+             setLoading(false);
+             setError("Erreur de donnée : L'ID de l'entreprise n'est pas un nombre valide. Veuillez vérifier dans Supabase.");
+             return;
+        }
 
         // 3. Insertion de l'article avec l'ID de l'entreprise
         const { error: insertError } = await supabase
           .from('articles')
           .insert([{ 
             ...newArticle,
-            entreprise_id: entrepriseId, // CLÉ OBLIGATOIRE AJOUTÉE
+            entreprise_id: entrepriseId, // L'ID est maintenant un nombre (INTEGER)
             quantite_en_stock: 0, 
             valeur_stock: 0 
           }]);
