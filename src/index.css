@@ -1,0 +1,23 @@
+/* Dans src/index.css (Version finale et corrigée) */
+
+/* 1. Importer la police "Lato" */
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+/* 2. Réinitialisation de base */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Lato', sans-serif; /* Notre police par défaut */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 3. Assurer que notre app prend toute la hauteur */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
